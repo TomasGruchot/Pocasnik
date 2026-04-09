@@ -1,0 +1,2 @@
+"""Loot items (pickup objects)."""
+

@@ -1,0 +1,2 @@
+"""Sprite-based entities."""
+
