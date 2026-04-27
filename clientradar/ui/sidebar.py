@@ -20,6 +20,7 @@ class Sidebar(ctk.CTkFrame):
         on_search_filter: Callable[[str], None],
         on_status_filter: Callable[[str], None],
         on_export: Callable[[], None],
+        on_launch_easter_egg: Callable[[], None],
         **kwargs,
     ) -> None:
         super().__init__(master, width=280, corner_radius=0, **kwargs)
@@ -30,12 +31,14 @@ class Sidebar(ctk.CTkFrame):
         self._on_search = on_search_filter
         self._on_status_filter = on_status_filter
         self._on_export = on_export
+        self._on_launch_easter_egg = on_launch_easter_egg
         self._is_scraping = False
 
         self._build_search_section()
         self._build_filter_section()
         self._build_stats_section()
         self._build_export_button()
+        self._build_easter_egg_button()
 
     def _build_search_section(self) -> None:
         ctk.CTkLabel(
@@ -158,6 +161,16 @@ class Sidebar(ctk.CTkFrame):
             fg_color="#198754", hover_color="#157347",
             command=self._on_export,
         ).pack(padx=15, pady=4)
+
+    def _build_easter_egg_button(self) -> None:
+        ctk.CTkButton(
+            self,
+            text="🕹 Spustit Easter Egg",
+            width=250,
+            fg_color="#7c3aed",
+            hover_color="#6d28d9",
+            command=self._on_launch_easter_egg,
+        ).pack(padx=15, pady=(8, 4))
 
     def _on_slider_change(self, value: float) -> None:
         self._slider_value_label.configure(text=str(int(value)))

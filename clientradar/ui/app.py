@@ -8,6 +8,7 @@ import customtkinter as ctk
 from clientradar.core.config_manager import ConfigManager
 from clientradar.core.database import DatabaseManager
 from clientradar.core.exporter import ExcelExporter
+from clientradar.easter_egg.launcher import launch_easter_egg
 from clientradar.models.lead import Lead, LeadStatus
 from clientradar.models.search_config import SearchConfig
 from clientradar.ui.detail_panel import LeadDetailPanel
@@ -41,6 +42,7 @@ class ClientRadarApp(ctk.CTk):
         self._restore_geometry()
         self._build_layout()
         self._load_initial_data()
+        self.bind_all("<Control-Shift-G>", self._launch_easter_egg)
 
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
@@ -72,6 +74,7 @@ class ClientRadarApp(ctk.CTk):
             on_search_filter=self._on_search_filter,
             on_status_filter=self._on_status_filter,
             on_export=self._on_export,
+            on_launch_easter_egg=self._launch_easter_egg,
         )
         self._sidebar.grid(row=0, column=0, sticky="nsew")
 
@@ -229,6 +232,13 @@ class ClientRadarApp(ctk.CTk):
 
     def _on_export(self) -> None:
         ExportDialog(self, on_export=self._do_export)
+
+    def _launch_easter_egg(self, _event=None) -> None:
+        try:
+            launch_easter_egg()
+            self._status_bar.set_message("Easter egg launch: NEON BREACH")
+        except Exception as exc:
+            self._status_bar.set_message(f"Easter egg nelze spustit: {exc}")
 
     def _do_export(self, filepath: str, scope: str | None) -> None:
         try:
