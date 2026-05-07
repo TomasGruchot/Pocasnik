@@ -17,6 +17,11 @@ class PrimaryButton(ttk.Button):
         super().__init__(master, style="Premium.TButton", cursor="hand2", **kwargs)
 
 
+class GhostButton(ttk.Button):
+    def __init__(self, master, theme: Theme, **kwargs):
+        super().__init__(master, style="Ghost.TButton", cursor="hand2", **kwargs)
+
+
 class StatusBadge(ttk.Label):
     def __init__(self, master, theme: Theme, text: str, color: str):
         style_name = f"Badge.{color}.TLabel"

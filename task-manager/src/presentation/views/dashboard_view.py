@@ -9,7 +9,7 @@ from application.services.stats_service import StatsService
 from application.services.task_service import TaskService
 from domain.value_objects.enums import Priority, TaskStatus
 from presentation.themes.theme import Theme
-from presentation.widgets.components import GlassCard, PrimaryButton, StatusBadge
+from presentation.widgets.components import GlassCard, GhostButton, PrimaryButton, StatusBadge
 
 
 class DashboardView(tk.Frame):
@@ -42,8 +42,7 @@ class DashboardView(tk.Frame):
         self._timer_state_label: ttk.Label | None = None
         self._timer_progress: ttk.Progressbar | None = None
         self._stats_label: tk.Label | None = None
-        self._task_listbox: tk.Listbox | None = None
-        self._task_id_by_index: dict[int, int] = {}
+        self._task_tree: ttk.Treeview | None = None
         self._project_name_to_id: dict[str, int] = {}
         self._build_ui()
         self.refresh()
@@ -51,36 +50,50 @@ class DashboardView(tk.Frame):
 
     def _build_ui(self) -> None:
         self.pack(fill="both", expand=True, padx=12, pady=12)
-        root = self
 
-        left = GlassCard(root, self._theme)
-        center = GlassCard(root, self._theme)
-        right = GlassCard(root, self._theme)
+        shell = ttk.Frame(self, style="Surface.TFrame")
+        shell.pack(fill="both", expand=True)
+
+        top = GlassCard(shell, self._theme)
+        top.pack(fill="x", pady=(0, 10))
+
+        body = ttk.Frame(shell, style="Surface.TFrame")
+        body.pack(fill="both", expand=True)
+
+        left = GlassCard(body, self._theme)
+        center = GlassCard(body, self._theme)
+        right = GlassCard(body, self._theme)
 
         left.pack(side="left", fill="y", padx=(0, 10))
         center.pack(side="left", fill="both", expand=True, padx=(0, 10))
         right.pack(side="left", fill="y")
 
+        self._build_topbar(top)
         self._build_sidebar(left)
         self._build_task_panel(center)
         self._build_timer_panel(right)
 
+    def _build_topbar(self, parent: tk.Frame) -> None:
+        bar = ttk.Frame(parent, style="Premium.TFrame")
+        bar.pack(fill="x", padx=14, pady=(12, 12))
+
+        ttk.Label(bar, text="Task Manager", style="Title.TLabel").pack(side="left")
+        StatusBadge(bar, self._theme, "MVP+", self._theme.success).pack(side="left", padx=(10, 0))
+
+        right = ttk.Frame(bar, style="Premium.TFrame")
+        right.pack(side="right")
+
+        ttk.Entry(right, textvariable=self._search_var, width=32).pack(side="left", padx=(0, 10))
+        GhostButton(right, self._theme, text="Refresh", command=self.refresh).pack(side="left", padx=(0, 8))
+        PrimaryButton(right, self._theme, text="+ Task", command=self._create_task).pack(side="left")
+
     def _build_sidebar(self, parent: tk.Frame) -> None:
         ttk.Label(
             parent,
-            text="task-manager",
-            style="Premium.TLabel",
-            font=(self._theme.font_family, 15, "bold"),
+            text="Filtry",
+            style="Section.TLabel",
         ).pack(anchor="w", padx=14, pady=(14, 8))
-        ttk.Label(
-            parent,
-            text="Hledat",
-            style="Muted.TLabel",
-        ).pack(anchor="w", padx=14, pady=(6, 4))
-        ttk.Entry(
-            parent,
-            textvariable=self._search_var,
-        ).pack(fill="x", padx=14)
+
         ttk.Label(parent, text="Status", style="Muted.TLabel").pack(anchor="w", padx=14, pady=(6, 4))
         ttk.Combobox(
             parent,
@@ -98,16 +111,14 @@ class DashboardView(tk.Frame):
             values=["created_desc", "created_asc", "due_asc", "priority_desc"],
             state="readonly",
         ).pack(fill="x", padx=14)
-        PrimaryButton(parent, self._theme, text="Použít filtry", command=self.refresh).pack(
-            fill="x", padx=14, pady=10
-        )
-        PrimaryButton(parent, self._theme, text="Nový projekt", command=self._create_project).pack(
+        PrimaryButton(parent, self._theme, text="Použít filtry", command=self.refresh).pack(fill="x", padx=14, pady=10)
+
+        ttk.Label(parent, text="Akce", style="Muted.TLabel").pack(anchor="w", padx=14, pady=(10, 4))
+        GhostButton(parent, self._theme, text="Nový projekt", command=self._create_project).pack(
             fill="x", padx=14, pady=(0, 8)
         )
-        PrimaryButton(parent, self._theme, text="Nový tag", command=self._create_tag).pack(
-            fill="x", padx=14, pady=(0, 8)
-        )
-        PrimaryButton(parent, self._theme, text="Nastavení timeru", command=self._open_preferences).pack(
+        GhostButton(parent, self._theme, text="Nový tag", command=self._create_tag).pack(fill="x", padx=14, pady=(0, 8))
+        GhostButton(parent, self._theme, text="Nastavení timeru", command=self._open_preferences).pack(
             fill="x", padx=14, pady=(0, 8)
         )
 
@@ -129,19 +140,33 @@ class DashboardView(tk.Frame):
         ).pack(side="left")
         StatusBadge(header, self._theme, "MVP+", self._theme.success).pack(side="right")
 
-        self._task_listbox = tk.Listbox(
-            parent,
-            bg=self._theme.panel_alt,
-            fg=self._theme.text_primary,
-            highlightthickness=0,
-            borderwidth=0,
-            selectbackground=self._theme.accent,
-            activestyle="none",
-            font=(self._theme.font_family, 10),
+        table_wrap = ttk.Frame(parent, style="Premium.TFrame")
+        table_wrap.pack(fill="both", expand=True, padx=14, pady=(0, 10))
+
+        columns = ("status", "title", "priority", "due")
+        self._task_tree = ttk.Treeview(
+            table_wrap,
+            columns=columns,
+            show="headings",
             selectmode="extended",
+            style="Tasks.Treeview",
         )
-        self._task_listbox.pack(fill="both", expand=True, padx=14, pady=(0, 10))
-        self._task_listbox.bind("<<ListboxSelect>>", self._on_task_selected)
+        self._task_tree.heading("status", text="Status")
+        self._task_tree.heading("title", text="Task")
+        self._task_tree.heading("priority", text="Priority")
+        self._task_tree.heading("due", text="Due")
+
+        self._task_tree.column("status", width=110, anchor="w", stretch=False)
+        self._task_tree.column("title", width=520, anchor="w", stretch=True)
+        self._task_tree.column("priority", width=110, anchor="w", stretch=False)
+        self._task_tree.column("due", width=120, anchor="w", stretch=False)
+
+        scrollbar = ttk.Scrollbar(table_wrap, orient="vertical", command=self._task_tree.yview)
+        self._task_tree.configure(yscrollcommand=scrollbar.set)
+        self._task_tree.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        self._task_tree.bind("<<TreeviewSelect>>", self._on_task_selected)
 
         form = ttk.Frame(parent, style="Premium.TFrame")
         form.pack(fill="x", padx=14, pady=(0, 14))
@@ -206,14 +231,15 @@ class DashboardView(tk.Frame):
         )
 
     def _get_selected_ids(self) -> list[int]:
-        if self._task_listbox is None:
+        if self._task_tree is None:
             return []
-        task_ids: list[int] = []
-        for idx in self._task_listbox.curselection():
-            task_id = self._task_id_by_index.get(idx)
-            if task_id is not None:
-                task_ids.append(task_id)
-        return task_ids
+        ids: list[int] = []
+        for item_id in self._task_tree.selection():
+            try:
+                ids.append(int(item_id))
+            except ValueError:
+                continue
+        return ids
 
     def _create_task(self) -> None:
         try:
@@ -246,14 +272,16 @@ class DashboardView(tk.Frame):
         self.refresh()
 
     def _on_task_selected(self, _event) -> None:
-        if self._task_listbox is None:
+        if self._task_tree is None:
             return
-        selection = self._task_listbox.curselection()
+        selection = self._task_tree.selection()
         if not selection:
             self._selected_task_id = None
             return
-        index = selection[0]
-        self._selected_task_id = self._task_id_by_index.get(index)
+        try:
+            self._selected_task_id = int(selection[0])
+        except ValueError:
+            self._selected_task_id = None
 
     def _edit_selected_task(self) -> None:
         if self._selected_task_id is None:
@@ -371,17 +399,19 @@ class DashboardView(tk.Frame):
             priority=priority_filter,
             sort_by=self._sort_by_var.get(),
         )
-        self._task_id_by_index = {}
-        if self._task_listbox is not None:
-            self._task_listbox.delete(0, "end")
-            for idx, task in enumerate(tasks):
+        if self._task_tree is not None:
+            for child in self._task_tree.get_children():
+                self._task_tree.delete(child)
+            for task in tasks:
+                if task.id is None:
+                    continue
                 due = task.due_at.strftime("%Y-%m-%d") if task.due_at else "-"
-                self._task_listbox.insert(
+                self._task_tree.insert(
+                    "",
                     "end",
-                    f"[{task.status.value}] {task.title} ({task.priority.value}) due {due}",
+                    iid=str(task.id),
+                    values=(task.status.value, task.title, task.priority.value, due),
                 )
-                if task.id is not None:
-                    self._task_id_by_index[idx] = task.id
 
         stats = self._stats_service.get_dashboard_stats()
         if self._stats_label is not None:
