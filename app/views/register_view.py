@@ -5,58 +5,124 @@ import customtkinter as ctk
 from app.views.base_view import BaseView
 
 
+_FONT = "Segoe UI"
+_FONT_EMOJI = "Segoe UI Emoji"
+_BG = "#0E1521"
+_TEXT_DIM = "#9AA4B8"
+_TEXT_FAINT = "#5C6477"
+
+
 class RegisterView(BaseView):
     """Registrační obrazovka."""
 
     def build(self) -> None:
+        self.configure(fg_color=_BG)
+
         wrapper = ctk.CTkFrame(self, fg_color="transparent")
         wrapper.place(relx=0.5, rely=0.5, anchor="center")
 
         ctk.CTkLabel(
-            wrapper, text="Vytvořit účet", font=ctk.CTkFont(size=28, weight="bold")
+            wrapper,
+            text="✨",
+            font=ctk.CTkFont(family=_FONT_EMOJI, size=40),
         ).pack(pady=(0, 4))
         ctk.CTkLabel(
             wrapper,
-            text="3–32 znaků (a–z, A–Z, 0–9, _), heslo min. 6 znaků.",
-            text_color="#9CA3AF",
-        ).pack(pady=(0, 20))
+            text="Vytvořit účet",
+            font=ctk.CTkFont(family=_FONT, size=26, weight="bold"),
+        ).pack(pady=(0, 22))
 
-        self._username = ctk.CTkEntry(
-            wrapper, placeholder_text="Uživatelské jméno", width=280, height=38
+        self._add_field(
+            wrapper,
+            label="Uživatelské jméno",
+            hint="3–32 znaků: písmena, číslice, podtržítko",
+            placeholder="např. petr_novak",
+            attr="_username",
         )
-        self._username.pack(pady=6)
-
-        self._password = ctk.CTkEntry(
-            wrapper, placeholder_text="Heslo", show="•", width=280, height=38
+        self._add_field(
+            wrapper,
+            label="Heslo",
+            hint="alespoň 6 znaků",
+            placeholder="vymyšlené heslo",
+            attr="_password",
+            secret=True,
         )
-        self._password.pack(pady=6)
-
-        self._password2 = ctk.CTkEntry(
-            wrapper, placeholder_text="Heslo znovu", show="•", width=280, height=38
+        self._add_field(
+            wrapper,
+            label="Heslo znovu",
+            hint="pro potvrzení – musí se shodovat",
+            placeholder="napiš stejné heslo ještě jednou",
+            attr="_password2",
+            secret=True,
         )
-        self._password2.pack(pady=6)
         self._password2.bind("<Return>", lambda _e: self._do_register())
 
-        self._error = ctk.CTkLabel(wrapper, text="", text_color="#F87171")
-        self._error.pack(pady=(6, 0))
+        self._error = ctk.CTkLabel(
+            wrapper,
+            text="",
+            text_color="#F87171",
+            font=ctk.CTkFont(family=_FONT, size=12),
+        )
+        self._error.pack(pady=(8, 0))
 
         ctk.CTkButton(
             wrapper,
             text="Zaregistrovat",
-            width=280,
-            height=40,
+            width=320,
+            height=42,
+            corner_radius=12,
+            font=ctk.CTkFont(family=_FONT, size=14, weight="bold"),
             command=self._do_register,
-        ).pack(pady=(16, 6))
+        ).pack(pady=(14, 6))
 
         ctk.CTkButton(
             wrapper,
-            text="Zpět na přihlášení",
-            width=280,
-            height=36,
+            text="Už mám účet — přihlásit se",
+            width=320,
+            height=38,
+            corner_radius=12,
             fg_color="transparent",
             border_width=1,
+            text_color=_TEXT_DIM,
+            font=ctk.CTkFont(family=_FONT, size=13),
             command=lambda: self.app.show("login"),
         ).pack()
+
+    def _add_field(
+        self,
+        parent: ctk.CTkBaseClass,
+        *,
+        label: str,
+        hint: str,
+        placeholder: str,
+        attr: str,
+        secret: bool = False,
+    ) -> None:
+        ctk.CTkLabel(
+            parent,
+            text=label,
+            anchor="w",
+            text_color=_TEXT_FAINT,
+            font=ctk.CTkFont(family=_FONT, size=12, weight="bold"),
+        ).pack(fill="x", padx=2, pady=(10, 0))
+        ctk.CTkLabel(
+            parent,
+            text=hint,
+            anchor="w",
+            text_color=_TEXT_FAINT,
+            font=ctk.CTkFont(family=_FONT, size=11),
+        ).pack(fill="x", padx=2, pady=(0, 4))
+        entry = ctk.CTkEntry(
+            parent,
+            placeholder_text=placeholder,
+            width=320,
+            height=40,
+            corner_radius=10,
+            font=ctk.CTkFont(family=_FONT, size=13),
+            show="•" if secret else "",
+        )
+        entry.pack()
+        setattr(self, attr, entry)
 
     def on_show(self) -> None:
         self._error.configure(text="")
