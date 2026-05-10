@@ -15,6 +15,7 @@ from app.viewmodels.weather_vm import WeatherViewModel
 from app.views.base_view import BaseView
 from app.views.login_view import LoginView
 from app.views.main_view import MainView
+from app.views.map_view import MapView
 from app.views.register_view import RegisterView
 from app.views.search_city_view import SearchCityView
 
@@ -91,12 +92,13 @@ class Application:
         if "main" not in self._views:
             self._views["main"] = MainView(self)
             self._views["search"] = SearchCityView(self)
+            self._views["map"] = MapView(self)
         self.show("main")
 
     def on_user_logout(self) -> None:
         self.auth_vm.logout()
         self.weather_vm = None
-        for key in ("main", "search"):
+        for key in ("main", "search", "map"):
             if key in self._views:
                 self._views[key].destroy()
                 del self._views[key]

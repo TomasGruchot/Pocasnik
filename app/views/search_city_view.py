@@ -6,15 +6,18 @@ import customtkinter as ctk
 
 from app.services.weather_service import GeoCity
 from app.views.base_view import BaseView
+from app.views.theme import (
+    BG,
+    CARD,
+    CARD_BORDER,
+    CARD_HOVER,
+    FONT,
+    FONT_EMOJI,
+    TEXT,
+    TEXT_DIM,
+    TEXT_FAINT,
+)
 
-
-_FONT = "Segoe UI"
-_FONT_EMOJI = "Segoe UI Emoji"
-_BG = "#0E1521"
-_CARD_BG = "#1A2235"
-_CARD_BG_HOVER = "#222C42"
-_TEXT_DIM = "#9AA4B8"
-_TEXT_FAINT = "#5C6477"
 
 _DEBOUNCE_MS = 300
 
@@ -23,7 +26,7 @@ class SearchCityView(BaseView):
     """Živé vyhledávání města – výsledky se nahrávají při psaní."""
 
     def build(self) -> None:
-        self.configure(fg_color=_BG)
+        self.configure(fg_color=BG)
         self._results: list[GeoCity] = []
         self._debounce_after_id: str | None = None
         self._search_seq: int = 0
@@ -39,15 +42,16 @@ class SearchCityView(BaseView):
             corner_radius=10,
             fg_color="transparent",
             border_width=1,
-            border_color=_CARD_BG,
-            text_color=_TEXT_DIM,
+            border_color=CARD_BORDER,
+            text_color=TEXT_DIM,
             command=lambda: self.app.show("main"),
         ).pack(side="left")
 
         ctk.CTkLabel(
             header,
             text="Přidat město",
-            font=ctk.CTkFont(family=_FONT, size=22, weight="bold"),
+            text_color=TEXT,
+            font=ctk.CTkFont(family=FONT, size=22, weight="bold"),
         ).pack(side="left", padx=16)
 
         body = ctk.CTkFrame(self, fg_color="transparent")
@@ -59,18 +63,20 @@ class SearchCityView(BaseView):
             body,
             text="HLEDAT MĚSTO",
             anchor="w",
-            text_color=_TEXT_FAINT,
-            font=ctk.CTkFont(family=_FONT, size=11, weight="bold"),
+            text_color=TEXT_FAINT,
+            font=ctk.CTkFont(family=FONT, size=11, weight="bold"),
         ).grid(row=0, column=0, sticky="ew", pady=(4, 4))
 
-        search_row = ctk.CTkFrame(body, fg_color=_CARD_BG, corner_radius=12)
+        search_row = ctk.CTkFrame(
+            body, fg_color=CARD, corner_radius=12, border_width=1, border_color=CARD_BORDER
+        )
         search_row.grid(row=1, column=0, sticky="ew")
         search_row.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
             search_row,
             text="🔍",
-            font=ctk.CTkFont(family=_FONT_EMOJI, size=16),
+            font=ctk.CTkFont(family=FONT_EMOJI, size=16),
             width=44,
         ).grid(row=0, column=0, sticky="w", padx=(8, 0))
 
@@ -79,8 +85,9 @@ class SearchCityView(BaseView):
             placeholder_text="Začni psát název města (Praha, Brno, Plzeň…) – výsledky se objeví hned",
             height=44,
             border_width=0,
-            fg_color=_CARD_BG,
-            font=ctk.CTkFont(family=_FONT, size=14),
+            fg_color=CARD,
+            text_color=TEXT,
+            font=ctk.CTkFont(family=FONT, size=14),
         )
         self._query.grid(row=0, column=1, sticky="ew", padx=(0, 8), pady=4)
         self._query.bind("<KeyRelease>", self._on_typing)
@@ -89,14 +96,14 @@ class SearchCityView(BaseView):
         self._status = ctk.CTkLabel(
             body,
             text="Najdu jakékoliv město na světě.",
-            text_color=_TEXT_FAINT,
+            text_color=TEXT_FAINT,
             anchor="w",
-            font=ctk.CTkFont(family=_FONT, size=12),
+            font=ctk.CTkFont(family=FONT, size=12),
         )
         self._status.grid(row=2, column=0, sticky="ew", pady=(8, 4))
 
         self._results_box = ctk.CTkScrollableFrame(
-            body, fg_color="transparent", scrollbar_button_color=_CARD_BG
+            body, fg_color="transparent", scrollbar_button_color=CARD_BORDER
         )
         self._results_box.grid(row=3, column=0, sticky="nsew", pady=(4, 0))
 
@@ -166,13 +173,19 @@ class SearchCityView(BaseView):
         self._status.configure(text=f"Nalezeno: {len(results)}")
 
         for geo in results:
-            row = ctk.CTkFrame(self._results_box, fg_color=_CARD_BG, corner_radius=12)
+            row = ctk.CTkFrame(
+                self._results_box,
+                fg_color=CARD,
+                corner_radius=12,
+                border_width=1,
+                border_color=CARD_BORDER,
+            )
             row.pack(fill="x", pady=4, padx=2)
 
             ctk.CTkLabel(
                 row,
                 text="📍",
-                font=ctk.CTkFont(family=_FONT_EMOJI, size=18),
+                font=ctk.CTkFont(family=FONT_EMOJI, size=18),
                 width=44,
             ).pack(side="left", padx=(8, 0), pady=10)
 
@@ -182,14 +195,15 @@ class SearchCityView(BaseView):
                 text_box,
                 text=geo.name,
                 anchor="w",
-                font=ctk.CTkFont(family=_FONT, size=14, weight="bold"),
+                text_color=TEXT,
+                font=ctk.CTkFont(family=FONT, size=14, weight="bold"),
             ).pack(fill="x")
             ctk.CTkLabel(
                 text_box,
                 text=f"{geo.country}   ·   {geo.latitude:.3f}, {geo.longitude:.3f}",
                 anchor="w",
-                text_color=_TEXT_DIM,
-                font=ctk.CTkFont(family=_FONT, size=12),
+                text_color=TEXT_DIM,
+                font=ctk.CTkFont(family=FONT, size=12),
             ).pack(fill="x")
 
             ctk.CTkButton(
@@ -198,7 +212,10 @@ class SearchCityView(BaseView):
                 width=100,
                 height=34,
                 corner_radius=10,
-                font=ctk.CTkFont(family=_FONT, size=13, weight="bold"),
+                fg_color=CARD_HOVER,
+                hover_color=CARD_BORDER,
+                text_color=TEXT,
+                font=ctk.CTkFont(family=FONT, size=13, weight="bold"),
                 command=lambda g=geo: self._add(g),
             ).pack(side="right", padx=10)
 

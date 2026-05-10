@@ -13,8 +13,10 @@ block_cipher = None
 
 datas = [
     ('app/assets/icon.ico', 'app/assets'),
+    ('app/assets/cities.json', 'app/assets'),
 ]
 datas += collect_data_files('customtkinter')
+datas += collect_data_files('tkintermapview')
 
 a = Analysis(
     ['app/__main__.py'],

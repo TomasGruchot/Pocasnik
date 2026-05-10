@@ -13,33 +13,141 @@ from app.services.weather_service import (
     weather_emoji,
 )
 from app.views.base_view import BaseView
+from app.views.theme import (
+    ACCENT_PROGRESS,
+    ACCENT_PROGRESS_BG,
+    BG,
+    CARD,
+    CARD_ACTIVE,
+    CARD_BORDER,
+    CARD_HOVER,
+    CHANCE_BLUE,
+    DANGER,
+    DANGER_HOVER,
+    FONT,
+    FONT_EMOJI,
+    SIDEBAR,
+    TEXT,
+    TEXT_DIM,
+    TEXT_FAINT,
+)
 
 
-_FONT = "Segoe UI"
-_FONT_EMOJI = "Segoe UI Emoji"
+class _CityListItem(ctk.CTkFrame):
+    """Karta města v sidebaru s emoji počasí a aktuální teplotou."""
 
-_BG = "#0E1521"
-_SIDEBAR_BG = "#0A0F18"
-_CARD_BG = "#1A2235"
-_CARD_BG_HOVER = "#222C42"
-_TEXT_DIM = "#9AA4B8"
-_TEXT_FAINT = "#5C6477"
+    def __init__(
+        self,
+        master: ctk.CTkBaseClass,
+        *,
+        city: City,
+        on_click,
+    ) -> None:
+        super().__init__(
+            master,
+            fg_color=CARD,
+            corner_radius=12,
+            border_width=1,
+            border_color=CARD_BORDER,
+            height=64,
+        )
+        self._city = city
+        self._on_click = on_click
+        self._is_active = False
+
+        self.grid_propagate(False)
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_columnconfigure(1, weight=0)
+        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+
+        self._name = ctk.CTkLabel(
+            self,
+            text=city.name,
+            anchor="w",
+            text_color=TEXT,
+            font=ctk.CTkFont(family=FONT, size=14, weight="bold"),
+        )
+        self._name.grid(row=0, column=0, sticky="sw", padx=(12, 4), pady=(8, 0))
+
+        self._sub = ctk.CTkLabel(
+            self,
+            text=city.country,
+            anchor="w",
+            text_color=TEXT_FAINT,
+            font=ctk.CTkFont(family=FONT, size=11),
+        )
+        self._sub.grid(row=1, column=0, sticky="nw", padx=(12, 4), pady=(0, 8))
+
+        right = ctk.CTkFrame(self, fg_color="transparent")
+        right.grid(row=0, column=1, rowspan=2, sticky="e", padx=(0, 12))
+        self._emoji = ctk.CTkLabel(
+            right,
+            text="…",
+            text_color=TEXT_DIM,
+            font=ctk.CTkFont(family=FONT_EMOJI, size=22),
+        )
+        self._emoji.pack()
+        self._temp = ctk.CTkLabel(
+            right,
+            text="—",
+            text_color=TEXT,
+            font=ctk.CTkFont(family=FONT, size=14, weight="bold"),
+        )
+        self._temp.pack()
+
+        self.bind("<Button-1>", self._fire_click)
+        for child in (self._name, self._sub, self._emoji, self._temp, right):
+            child.bind("<Button-1>", self._fire_click)
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+
+    @property
+    def city(self) -> City:
+        return self._city
+
+    def set_weather(self, emoji: str, temp_c: float) -> None:
+        self._emoji.configure(text=emoji)
+        self._temp.configure(text=f"{temp_c:.0f}°")
+
+    def set_loading(self) -> None:
+        self._emoji.configure(text="…")
+        self._temp.configure(text="—")
+
+    def set_error(self) -> None:
+        self._emoji.configure(text="⚠")
+        self._temp.configure(text="—")
+
+    def set_active(self, active: bool) -> None:
+        self._is_active = active
+        self._apply_bg()
+
+    def _apply_bg(self) -> None:
+        if self._is_active:
+            self.configure(fg_color=CARD_ACTIVE, border_color=ACCENT_PROGRESS)
+        else:
+            self.configure(fg_color=CARD, border_color=CARD_BORDER)
+
+    def _on_enter(self, _e=None) -> None:
+        if not self._is_active:
+            self.configure(fg_color=CARD_HOVER)
+
+    def _on_leave(self, _e=None) -> None:
+        self._apply_bg()
+
+    def _fire_click(self, _e=None) -> None:
+        self._on_click(self._city)
 
 
 class MainView(BaseView):
-    """Hlavní obrazovka v Apple-Weather stylu.
-
-    Levý sidebar = seznam měst, pravá strana = hero (lokace, velká teplota,
-    emoji), hodinová předpověď, 7denní předpověď, statistiky.
-    """
+    """Hlavní obrazovka – Apple Weather feel (šedá frosted paleta)."""
 
     def build(self) -> None:
         self._cities: list[City] = []
         self._selected: City | None = None
-        self._city_buttons: dict[int, ctk.CTkButton] = {}
+        self._city_items: dict[int, _CityListItem] = {}
 
-        self.configure(fg_color=_BG)
-
+        self.configure(fg_color=BG)
         self.grid_columnconfigure(0, weight=0)
         self.grid_columnconfigure(1, weight=1)
         self.grid_rowconfigure(0, weight=1)
@@ -49,104 +157,134 @@ class MainView(BaseView):
         self._show_empty_state()
 
     def _build_sidebar(self) -> None:
-        sidebar = ctk.CTkFrame(self, width=240, corner_radius=0, fg_color=_SIDEBAR_BG)
+        sidebar = ctk.CTkFrame(self, width=270, corner_radius=0, fg_color=SIDEBAR)
         sidebar.grid(row=0, column=0, sticky="nsew")
         sidebar.grid_propagate(False)
-        sidebar.grid_rowconfigure(2, weight=1)
+        sidebar.grid_rowconfigure(3, weight=1)
 
         self._user_label = ctk.CTkLabel(
             sidebar,
             text="",
-            font=ctk.CTkFont(family=_FONT, size=15, weight="bold"),
+            text_color=TEXT,
             anchor="w",
+            font=ctk.CTkFont(family=FONT, size=14, weight="bold"),
         )
-        self._user_label.grid(row=0, column=0, sticky="ew", padx=20, pady=(22, 4))
+        self._user_label.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 4))
+
+        ctk.CTkButton(
+            sidebar,
+            text="🗺️   Mapa",
+            height=42,
+            corner_radius=12,
+            fg_color=CARD,
+            hover_color=CARD_HOVER,
+            border_color=CARD_BORDER,
+            border_width=1,
+            text_color=TEXT,
+            font=ctk.CTkFont(family=FONT, size=13, weight="bold"),
+            command=lambda: self.app.show("map"),
+        ).grid(row=1, column=0, sticky="ew", padx=14, pady=(8, 12))
 
         ctk.CTkLabel(
             sidebar,
             text="MOJE MĚSTA",
-            text_color=_TEXT_FAINT,
+            text_color=TEXT_FAINT,
             anchor="w",
-            font=ctk.CTkFont(family=_FONT, size=11, weight="bold"),
-        ).grid(row=1, column=0, sticky="ew", padx=20, pady=(14, 6))
+            font=ctk.CTkFont(family=FONT, size=11, weight="bold"),
+        ).grid(row=2, column=0, sticky="ew", padx=20, pady=(2, 6))
 
         self._cities_list = ctk.CTkScrollableFrame(
-            sidebar, fg_color="transparent", scrollbar_button_color=_CARD_BG
+            sidebar, fg_color="transparent", scrollbar_button_color=CARD_BORDER
         )
-        self._cities_list.grid(row=2, column=0, sticky="nsew", padx=10, pady=2)
+        self._cities_list.grid(row=3, column=0, sticky="nsew", padx=10, pady=2)
 
         ctk.CTkButton(
             sidebar,
-            text="+  Přidat město",
+            text="+   Přidat město",
             height=40,
             corner_radius=12,
-            font=ctk.CTkFont(family=_FONT, size=13, weight="bold"),
+            fg_color=CARD,
+            hover_color=CARD_HOVER,
+            border_color=CARD_BORDER,
+            border_width=1,
+            text_color=TEXT,
+            font=ctk.CTkFont(family=FONT, size=13, weight="bold"),
             command=lambda: self.app.show("search"),
-        ).grid(row=3, column=0, sticky="ew", padx=14, pady=(10, 6))
+        ).grid(row=4, column=0, sticky="ew", padx=14, pady=(10, 6))
 
         ctk.CTkButton(
             sidebar,
             text="Odhlásit",
             fg_color="transparent",
-            hover_color=_CARD_BG,
+            hover_color=CARD,
             border_width=1,
-            border_color=_CARD_BG,
-            text_color=_TEXT_DIM,
+            border_color=CARD_BORDER,
+            text_color=TEXT_DIM,
             height=36,
             corner_radius=12,
             command=self._do_logout,
-        ).grid(row=4, column=0, sticky="ew", padx=14, pady=(0, 18))
+        ).grid(row=5, column=0, sticky="ew", padx=14, pady=(0, 18))
 
     def _build_detail(self) -> None:
         self._scroll = ctk.CTkScrollableFrame(
-            self, fg_color="transparent", scrollbar_button_color=_CARD_BG
+            self, fg_color="transparent", scrollbar_button_color=CARD_BORDER
         )
         self._scroll.grid(row=0, column=1, sticky="nsew", padx=24, pady=24)
         self._scroll.grid_columnconfigure(0, weight=1)
 
-        self._hero = ctk.CTkFrame(self._scroll, fg_color=_CARD_BG, corner_radius=20)
+        self._hero = ctk.CTkFrame(
+            self._scroll,
+            fg_color=CARD,
+            corner_radius=20,
+            border_width=1,
+            border_color=CARD_BORDER,
+        )
         self._hero.grid(row=0, column=0, sticky="ew")
         self._hero.grid_columnconfigure(0, weight=1)
 
         self._hero_emoji = ctk.CTkLabel(
-            self._hero,
-            text="",
-            font=ctk.CTkFont(family=_FONT_EMOJI, size=72),
+            self._hero, text="", font=ctk.CTkFont(family=FONT_EMOJI, size=72)
         )
         self._hero_emoji.grid(row=0, column=0, pady=(28, 0))
 
         self._hero_city = ctk.CTkLabel(
             self._hero,
             text="",
-            font=ctk.CTkFont(family=_FONT, size=24, weight="bold"),
+            text_color=TEXT,
+            font=ctk.CTkFont(family=FONT, size=24, weight="bold"),
         )
         self._hero_city.grid(row=1, column=0, pady=(16, 0))
 
         self._hero_temp = ctk.CTkLabel(
             self._hero,
             text="",
-            font=ctk.CTkFont(family=_FONT, size=84, weight="normal"),
+            text_color=TEXT,
+            font=ctk.CTkFont(family=FONT, size=84),
         )
         self._hero_temp.grid(row=2, column=0, pady=(2, 0))
 
         self._hero_desc = ctk.CTkLabel(
             self._hero,
             text="",
-            text_color=_TEXT_DIM,
-            font=ctk.CTkFont(family=_FONT, size=14),
+            text_color=TEXT_DIM,
+            font=ctk.CTkFont(family=FONT, size=14),
         )
         self._hero_desc.grid(row=3, column=0, pady=(2, 4))
 
         self._hero_minmax = ctk.CTkLabel(
             self._hero,
             text="",
-            text_color=_TEXT_DIM,
-            font=ctk.CTkFont(family=_FONT, size=13),
+            text_color=TEXT_DIM,
+            font=ctk.CTkFont(family=FONT, size=13),
         )
         self._hero_minmax.grid(row=4, column=0, pady=(0, 28))
 
         self._hourly_card = ctk.CTkFrame(
-            self._scroll, fg_color=_CARD_BG, corner_radius=18
+            self._scroll,
+            fg_color=CARD,
+            corner_radius=18,
+            border_width=1,
+            border_color=CARD_BORDER,
         )
         self._hourly_card.grid(row=1, column=0, sticky="ew", pady=(16, 0))
         self._hourly_card.grid_columnconfigure(0, weight=1)
@@ -154,9 +292,9 @@ class MainView(BaseView):
         ctk.CTkLabel(
             self._hourly_card,
             text="HODINOVÁ PŘEDPOVĚĎ",
-            text_color=_TEXT_FAINT,
+            text_color=TEXT_FAINT,
             anchor="w",
-            font=ctk.CTkFont(family=_FONT, size=11, weight="bold"),
+            font=ctk.CTkFont(family=FONT, size=11, weight="bold"),
         ).grid(row=0, column=0, sticky="ew", padx=20, pady=(16, 6))
 
         self._hourly_strip = ctk.CTkScrollableFrame(
@@ -164,12 +302,16 @@ class MainView(BaseView):
             orientation="horizontal",
             fg_color="transparent",
             height=130,
-            scrollbar_button_color=_CARD_BG_HOVER,
+            scrollbar_button_color=CARD_BORDER,
         )
         self._hourly_strip.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 14))
 
         self._daily_card = ctk.CTkFrame(
-            self._scroll, fg_color=_CARD_BG, corner_radius=18
+            self._scroll,
+            fg_color=CARD,
+            corner_radius=18,
+            border_width=1,
+            border_color=CARD_BORDER,
         )
         self._daily_card.grid(row=2, column=0, sticky="ew", pady=(16, 0))
         self._daily_card.grid_columnconfigure(0, weight=1)
@@ -177,9 +319,9 @@ class MainView(BaseView):
         ctk.CTkLabel(
             self._daily_card,
             text="7DENNÍ PŘEDPOVĚĎ",
-            text_color=_TEXT_FAINT,
+            text_color=TEXT_FAINT,
             anchor="w",
-            font=ctk.CTkFont(family=_FONT, size=11, weight="bold"),
+            font=ctk.CTkFont(family=FONT, size=11, weight="bold"),
         ).grid(row=0, column=0, sticky="ew", padx=20, pady=(16, 4))
 
         self._daily_box = ctk.CTkFrame(self._daily_card, fg_color="transparent")
@@ -187,7 +329,11 @@ class MainView(BaseView):
         self._daily_box.grid_columnconfigure(0, weight=1)
 
         self._stats_card = ctk.CTkFrame(
-            self._scroll, fg_color=_CARD_BG, corner_radius=18
+            self._scroll,
+            fg_color=CARD,
+            corner_radius=18,
+            border_width=1,
+            border_color=CARD_BORDER,
         )
         self._stats_card.grid(row=3, column=0, sticky="ew", pady=(16, 4))
         self._stats_card.grid_columnconfigure((0, 1, 2), weight=1, uniform="stats")
@@ -206,14 +352,19 @@ class MainView(BaseView):
             width=130,
             height=36,
             corner_radius=10,
+            fg_color=CARD,
+            hover_color=CARD_HOVER,
+            border_color=CARD_BORDER,
+            border_width=1,
+            text_color=TEXT,
         )
         self._refresh_btn.pack(side="left", padx=(0, 8))
 
         self._delete_btn = ctk.CTkButton(
             self._actions,
             text="Odebrat město",
-            fg_color="#7F1D1D",
-            hover_color="#991B1B",
+            fg_color=DANGER,
+            hover_color=DANGER_HOVER,
             command=self._delete_selected,
             width=160,
             height=36,
@@ -227,23 +378,24 @@ class MainView(BaseView):
         ctk.CTkLabel(
             cell,
             text=f"{emoji}  {label}",
-            text_color=_TEXT_FAINT,
+            text_color=TEXT_FAINT,
             anchor="w",
-            font=ctk.CTkFont(family=_FONT, size=11, weight="bold"),
+            font=ctk.CTkFont(family=FONT, size=11, weight="bold"),
         ).pack(anchor="w", padx=8)
         value = ctk.CTkLabel(
             cell,
             text="—",
+            text_color=TEXT,
             anchor="w",
-            font=ctk.CTkFont(family=_FONT, size=22, weight="bold"),
+            font=ctk.CTkFont(family=FONT, size=22, weight="bold"),
         )
         value.pack(anchor="w", padx=8, pady=(2, 0))
         sub = ctk.CTkLabel(
             cell,
             text="",
-            text_color=_TEXT_DIM,
+            text_color=TEXT_DIM,
             anchor="w",
-            font=ctk.CTkFont(family=_FONT, size=12),
+            font=ctk.CTkFont(family=FONT, size=12),
         )
         sub.pack(anchor="w", padx=8)
         return {"value": value, "sub": sub}
@@ -256,7 +408,7 @@ class MainView(BaseView):
     def _reload_cities(self) -> None:
         for child in self._cities_list.winfo_children():
             child.destroy()
-        self._city_buttons.clear()
+        self._city_items.clear()
 
         self._cities = self.app.weather_vm.list_cities()
 
@@ -264,29 +416,21 @@ class MainView(BaseView):
             ctk.CTkLabel(
                 self._cities_list,
                 text="Zatím žádná města.\nKlikni „+ Přidat město“.",
-                text_color=_TEXT_FAINT,
+                text_color=TEXT_FAINT,
                 justify="center",
-                font=ctk.CTkFont(family=_FONT, size=12),
+                font=ctk.CTkFont(family=FONT, size=12),
             ).pack(pady=18, padx=8)
             self._show_empty_state()
             return
 
         for city in self._cities:
-            btn = ctk.CTkButton(
-                self._cities_list,
-                text=city.label,
-                anchor="w",
-                fg_color="transparent",
-                hover_color=_CARD_BG,
-                text_color="#E5E7EB",
-                height=42,
-                corner_radius=10,
-                font=ctk.CTkFont(family=_FONT, size=13),
-                command=lambda c=city: self._select_city(c),
+            item = _CityListItem(
+                self._cities_list, city=city, on_click=self._select_city
             )
-            btn.pack(fill="x", padx=4, pady=2)
+            item.pack(fill="x", padx=4, pady=4)
             if city.id is not None:
-                self._city_buttons[city.id] = btn
+                self._city_items[city.id] = item
+            self._fetch_weather_for_item(item)
 
         if self._selected is not None and any(
             c.id == self._selected.id for c in self._cities
@@ -295,12 +439,32 @@ class MainView(BaseView):
         else:
             self._select_city(self._cities[0])
 
+    def _fetch_weather_for_item(self, item: _CityListItem) -> None:
+        item.set_loading()
+        city = item.city
+
+        def worker() -> None:
+            try:
+                report = self.app.weather_vm.fetch_weather(city)
+            except Exception:
+                self.after(0, item.set_error)
+                return
+
+            def apply():
+                if not item.winfo_exists():
+                    return
+                item.set_weather(
+                    weather_emoji(report.current_code, report.current_is_day),
+                    report.current_temperature,
+                )
+
+            self.after(0, apply)
+
+        threading.Thread(target=worker, daemon=True).start()
+
     def _highlight_selected(self) -> None:
-        for cid, btn in self._city_buttons.items():
-            if self._selected is not None and cid == self._selected.id:
-                btn.configure(fg_color=_CARD_BG, text_color="#FFFFFF")
-            else:
-                btn.configure(fg_color="transparent", text_color="#E5E7EB")
+        for cid, item in self._city_items.items():
+            item.set_active(self._selected is not None and cid == self._selected.id)
 
     def _show_empty_state(self) -> None:
         self._selected = None
@@ -371,6 +535,12 @@ class MainView(BaseView):
                 )
             )
 
+        if self._selected is not None and self._selected.id in self._city_items:
+            self._city_items[self._selected.id].set_weather(
+                weather_emoji(report.current_code, report.current_is_day),
+                report.current_temperature,
+            )
+
         self._render_hourly(report)
         self._render_daily(report)
         self._render_stats(report)
@@ -387,18 +557,19 @@ class MainView(BaseView):
             ctk.CTkLabel(
                 cell,
                 text=format_hour(time_iso),
-                text_color=_TEXT_DIM,
-                font=ctk.CTkFont(family=_FONT, size=12, weight="bold"),
+                text_color=TEXT_DIM,
+                font=ctk.CTkFont(family=FONT, size=12, weight="bold"),
             ).pack()
             ctk.CTkLabel(
                 cell,
                 text=weather_emoji(code, report.current_is_day),
-                font=ctk.CTkFont(family=_FONT_EMOJI, size=22),
+                font=ctk.CTkFont(family=FONT_EMOJI, size=22),
             ).pack(pady=(4, 4))
             ctk.CTkLabel(
                 cell,
                 text=f"{temp:.0f}°",
-                font=ctk.CTkFont(family=_FONT, size=14, weight="bold"),
+                text_color=TEXT,
+                font=ctk.CTkFont(family=FONT, size=14, weight="bold"),
             ).pack()
 
     def _render_daily(self, report: WeatherReport) -> None:
@@ -424,7 +595,7 @@ class MainView(BaseView):
 
             row = ctk.CTkFrame(self._daily_box, fg_color="transparent")
             row.pack(fill="x", padx=8, pady=2)
-            row.grid_columnconfigure(3, weight=1)
+            row.grid_columnconfigure(4, weight=1)
 
             day_label = "Dnes" if i == 0 else format_weekday(date)
             ctk.CTkLabel(
@@ -432,41 +603,42 @@ class MainView(BaseView):
                 text=day_label,
                 width=70,
                 anchor="w",
-                font=ctk.CTkFont(family=_FONT, size=14, weight="bold"),
+                text_color=TEXT,
+                font=ctk.CTkFont(family=FONT, size=14, weight="bold"),
             ).grid(row=0, column=0, padx=(4, 0), pady=8)
 
             ctk.CTkLabel(
                 row,
                 text=weather_emoji(code, True),
                 width=40,
-                font=ctk.CTkFont(family=_FONT_EMOJI, size=20),
+                font=ctk.CTkFont(family=FONT_EMOJI, size=20),
             ).grid(row=0, column=1, padx=(0, 6))
 
             chance_text = f"{chance}%" if chance > 0 else ""
             ctk.CTkLabel(
                 row,
                 text=chance_text,
-                text_color="#7DD3FC",
+                text_color=CHANCE_BLUE,
                 width=46,
                 anchor="w",
-                font=ctk.CTkFont(family=_FONT, size=12),
+                font=ctk.CTkFont(family=FONT, size=12),
             ).grid(row=0, column=2, padx=(0, 8))
 
             ctk.CTkLabel(
                 row,
                 text=f"{tmin:.0f}°",
-                text_color=_TEXT_DIM,
+                text_color=TEXT_DIM,
                 width=36,
                 anchor="e",
-                font=ctk.CTkFont(family=_FONT, size=14),
+                font=ctk.CTkFont(family=FONT, size=14),
             ).grid(row=0, column=3, sticky="e")
 
             bar = ctk.CTkProgressBar(
                 row,
                 height=6,
                 corner_radius=3,
-                progress_color="#60A5FA",
-                fg_color="#2B3552",
+                progress_color=ACCENT_PROGRESS,
+                fg_color=ACCENT_PROGRESS_BG,
             )
             bar.grid(row=0, column=4, sticky="ew", padx=12)
             bar.set(min(max((tmax - global_min) / span, 0.0), 1.0))
@@ -474,9 +646,10 @@ class MainView(BaseView):
             ctk.CTkLabel(
                 row,
                 text=f"{tmax:.0f}°",
+                text_color=TEXT,
                 width=36,
                 anchor="w",
-                font=ctk.CTkFont(family=_FONT, size=14, weight="bold"),
+                font=ctk.CTkFont(family=FONT, size=14, weight="bold"),
             ).grid(row=0, column=5, sticky="w", padx=(0, 4))
 
     def _render_stats(self, report: WeatherReport) -> None:

@@ -3,20 +3,24 @@ from __future__ import annotations
 import customtkinter as ctk
 
 from app.views.base_view import BaseView
-
-
-_FONT = "Segoe UI"
-_FONT_EMOJI = "Segoe UI Emoji"
-_BG = "#0E1521"
-_TEXT_DIM = "#9AA4B8"
-_TEXT_FAINT = "#5C6477"
+from app.views.theme import (
+    BG,
+    CARD,
+    CARD_BORDER,
+    CARD_HOVER,
+    FONT,
+    FONT_EMOJI,
+    TEXT,
+    TEXT_DIM,
+    TEXT_FAINT,
+)
 
 
 class LoginView(BaseView):
-    """Přihlašovací obrazovka."""
+    """Přihlašovací obrazovka – frosted-glass šedá paleta."""
 
     def build(self) -> None:
-        self.configure(fg_color=_BG)
+        self.configure(fg_color=BG)
 
         wrapper = ctk.CTkFrame(self, fg_color="transparent")
         wrapper.place(relx=0.5, rely=0.5, anchor="center")
@@ -24,18 +28,19 @@ class LoginView(BaseView):
         ctk.CTkLabel(
             wrapper,
             text="🌤️",
-            font=ctk.CTkFont(family=_FONT_EMOJI, size=44),
+            font=ctk.CTkFont(family=FONT_EMOJI, size=44),
         ).pack(pady=(0, 4))
         ctk.CTkLabel(
             wrapper,
             text="POČASNÍK",
-            font=ctk.CTkFont(family=_FONT, size=30, weight="bold"),
+            text_color=TEXT,
+            font=ctk.CTkFont(family=FONT, size=30, weight="bold"),
         ).pack(pady=(0, 4))
         ctk.CTkLabel(
             wrapper,
             text="Přihlaš se a sleduj počasí svých měst.",
-            text_color=_TEXT_DIM,
-            font=ctk.CTkFont(family=_FONT, size=13),
+            text_color=TEXT_DIM,
+            font=ctk.CTkFont(family=FONT, size=13),
         ).pack(pady=(0, 24))
 
         self._add_field(
@@ -56,8 +61,8 @@ class LoginView(BaseView):
         self._error = ctk.CTkLabel(
             wrapper,
             text="",
-            text_color="#F87171",
-            font=ctk.CTkFont(family=_FONT, size=12),
+            text_color="#D88A8A",
+            font=ctk.CTkFont(family=FONT, size=12),
         )
         self._error.pack(pady=(8, 0))
 
@@ -67,7 +72,12 @@ class LoginView(BaseView):
             width=300,
             height=42,
             corner_radius=12,
-            font=ctk.CTkFont(family=_FONT, size=14, weight="bold"),
+            fg_color=CARD,
+            hover_color=CARD_HOVER,
+            border_color=CARD_BORDER,
+            border_width=1,
+            text_color=TEXT,
+            font=ctk.CTkFont(family=FONT, size=14, weight="bold"),
             command=self._do_login,
         ).pack(pady=(14, 6))
 
@@ -79,8 +89,9 @@ class LoginView(BaseView):
             corner_radius=12,
             fg_color="transparent",
             border_width=1,
-            text_color=_TEXT_DIM,
-            font=ctk.CTkFont(family=_FONT, size=13),
+            border_color=CARD_BORDER,
+            text_color=TEXT_DIM,
+            font=ctk.CTkFont(family=FONT, size=13),
             command=lambda: self.app.show("register"),
         ).pack()
 
@@ -97,8 +108,8 @@ class LoginView(BaseView):
             parent,
             text=label,
             anchor="w",
-            text_color=_TEXT_FAINT,
-            font=ctk.CTkFont(family=_FONT, size=12, weight="bold"),
+            text_color=TEXT_FAINT,
+            font=ctk.CTkFont(family=FONT, size=12, weight="bold"),
         ).pack(fill="x", padx=2, pady=(8, 2))
         entry = ctk.CTkEntry(
             parent,
@@ -106,7 +117,10 @@ class LoginView(BaseView):
             width=300,
             height=40,
             corner_radius=10,
-            font=ctk.CTkFont(family=_FONT, size=13),
+            border_width=1,
+            border_color=CARD_BORDER,
+            fg_color=CARD,
+            font=ctk.CTkFont(family=FONT, size=13),
             show="•" if secret else "",
         )
         entry.pack()
