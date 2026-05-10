@@ -35,6 +35,7 @@
 | Napojení na DB | `app/database.py`, tabulky `users`, `cities` |
 | Externí API | `app/services/weather_service.py` (forecast + geokódování přes Open-Meteo) |
 | Validace na datové vrstvě | `Entity.validate()` v modelech; volá `Repository.save()` |
+| Ochrana dat / zabezpečení | Viz sekce **Bezpečnost a ochrana dat** (hesla, SQL, HTTPS, izolace uživatele) |
 | Architektura MVVM | `models/`, `repositories/`, `services/`, `viewmodels/`, `views/` |
 | Login + registrace | `AuthService`, `LoginView`, `RegisterView`, `AuthViewModel` |
 | OOP, struktura ve složkách | Viz strom projektu níže |
@@ -232,6 +233,66 @@ cities (
 | `City` | `longitude` | −180 … 180 |
 
 Před uložením uživatele kontroluje heslo také **`AuthService.register`** (min. 6 znaků, shoda hesel).
+
+---
+
+## Bezpečnost a ochrana dat
+
+Tato sekce doplňuje zadání v části o **validaci na datové vrstvě** a **ochraně dat**. Projekt je desktopová aplikace (jeden uživatel zařízení); model hrozby je jiný než u veřejného webového serveru — níže je popsáno, co je implementováno a kde jsou rozumné limity.
+
+### Shrnutí vůči zadání
+
+| Očekávání (typicky „ochrana dat“ / „validace“) | Jak je to řešeno |
+|------------------------------------------------|------------------|
+| Validace vstupů před uložením | `Entity.validate()` + kontrola hesla v `AuthService`; volá se z `Repository.save()` před INSERT/UPDATE |
+| Hesla ne v čitelné podobě | Pouze **PBKDF2-HMAC-SHA256** (100 000 iterací) + **náhodná sůl** (`os.urandom`), v DB je hash + salt |
+| Odolnost vůči SQL injection | Parametrické dotazy (`?`), názvy tabulek nejsou složené z uživatelského vstupu |
+| Konzistence dat v DB | `PRAGMA foreign_keys = ON`, CASCADE při mazání uživatele |
+| Izolace dat uživatelů | Města se čtou přes `city_repo.list_for_user(user_id)` |
+| Přenos síťových dat | Open-Meteo je voláno přes **HTTPS** (`urllib` na `https://…`) |
+
+### Ukládání hesel
+
+- **Nikdy** se neukládá plaintextové heslo.
+- Algoritmus: `hashlib.pbkdf2_hmac("sha256", …)` — viz `app/services/auth_service.py`, konstanta `_ITERATIONS = 100_000`.
+- Sůl je unikátní pro každého uživatele (hex z 16 bajtů náhodných dat).
+- Při přihlášení se heslo znovu přehashuje stejnou funkcí a výsledek se porovná s uloženým hashem.
+
+Generické chybové hlášky při přihlášení („Uživatel nebo heslo nesouhlasí“) **nespecifikují**, zda neexistuje uživatelské jméno, nebo je jen špatné heslo — základní opatrnost proti jednoduchému výčtu účtů.
+
+### Validace a datová vrstva
+
+- Doménová pravidla jsou v modelech (`User`, `City`); před zápisem je vždy volána **`entity.validate()`** z repozitáře.
+- Díky tomu stejná pravidla platí bez ohledu na to, odkud by se entita v budoucnu vytvářela (UI / test / skript).
+
+### SQL a injection
+
+- Hodnoty od uživatele se předávají jako **parametry** (`execute(..., (hodnoty,))`).
+- Identifikátory tabulek (`users`, `cities`) pocházejí z pevných řetězců ve třídách repozitářů, ne z vstupu.
+
+### Soubor databáze
+
+- SQLite soubor `pocasnik.db` je na disku **nezšifrovaný** — standardní situace u malých desktopových aplikací.
+- **Ochrana obsahu:** útočník s kopií souboru nezjistí původní hesla (jen hash + sůl).
+- **Ochrana prostředí:** spoléhá se na oprávnění OS k souborům (uživatel Windows nesmí svůj profil číst cizím bez oprávnění).
+
+### Síť a API
+
+- Geokódování a předpověď počasí jdou přes TLS (HTTPS).
+- Citlivá „API klíče“ nejsou potřeba (Open-Meteo bez klíče).
+
+### Limity (co projekt záměrně neřeší)
+
+Tyto věci jsou typické spíš pro **server / víceuživatelský web**, ne pro lokální školní GUI:
+
+- Žádný **rate limiting** přihlášení (ochrana proti hrubé síle na jednom PC má omezený smysl).
+- Žádné šifrování celého souboru DB (rozšíření by bylo např. SQLCipher — nad rámec zadání).
+- „Relace“ je stav procesu aplikace, ne JWT cookie — u desktopové aplikace běžné.
+
+### Možné vylepšení (volitelné)
+
+- Při mazání města explicitně ověřit v databázi `WHERE id = ? AND user_id = ?`, aby nešlo smazat cizí záznam ani při hypotetické chybě ve vrstvě UI.
+- Logování neúspěšných pokusů o přihlášení (maximálně lokálně, s ohledem na GDPR v produkci).
 
 ---
 
